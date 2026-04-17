@@ -11,6 +11,7 @@ Frontend/dist
 Frontend/build
 
 Frontend/ui.prompt.txt
+Backend/judge.response.json
 
 # Logs
 *.log
