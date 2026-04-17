@@ -40,16 +40,30 @@ const judgeNode: GraphNode<typeof state> = async (state) => {
     model: geminiModel,
     responseFormat: providerStrategy(
       z.object({
-        solution_1_score: z.number().min(0).max(10),
-        solution_2_score: z.number().min(0).max(10),
+        solution_1: z.object({
+          correctness: z.number().min(0).max(10),
+          completeness: z.number().min(0).max(10),
+          clarity: z.number().min(0).max(10),
+          efficiency: z.number().min(0).max(10),
+          robustness: z.number().min(0).max(10),
+          overall_score: z.number().min(0).max(10),
+        }),
+        solution_2: z.object({
+          correctness: z.number().min(0).max(10),
+          completeness: z.number().min(0).max(10),
+          clarity: z.number().min(0).max(10),
+          efficiency: z.number().min(0).max(10),
+          robustness: z.number().min(0).max(10),
+          overall_score: z.number().min(0).max(10),
+        }),
+        winner: z.enum(['Model 1 Response', 'Model 2 Response']),
+        confidence: z.number().min(0).max(1),
         reasoning: z.string(),
-        recommended_response: z.enum(['Model 1 Response', 'Model 2 Response']),
-        // solution_1_reasoning: z.string(),
-        // solution_2_reasoning: z.string(),
+        tie_break_reason: z.string().optional(),
       }),
     ),
     systemPrompt: `
-You are an expert technical evaluator tasked with comparing two solutions to a given problem.
+You are an expert technical evaluator tasked with comparing two AI solutions to a given problem.
 
 ## Problem:
 ${problem}
@@ -65,52 +79,68 @@ ${solution_2}
 ## Evaluation Criteria (strictly follow all):
 Evaluate BOTH solutions independently based on:
 
-1. Correctness (Is the solution logically and factually correct?)
-2. Completeness (Does it fully solve the problem?)
-3. Clarity (Is it well-explained and easy to understand?)
-4. Efficiency (Is the approach optimal or unnecessarily complex?)
-5. Robustness (Does it handle edge cases or real-world scenarios?)
+1. Correctness -> 40% (Is the solution logically and factually correct?)
+2. Completeness -> 20% (Does it fully solve the problem?)
+3. Clarity -> 15% (Is it well-explained and easy to understand?)
+4. Efficiency -> 15% (Is the approach optimal or unnecessarily complex?)
+5. Robustness -> 10% (Does it handle edge cases or real-world scenarios?)
+
+Each criterion should be scored on a scale of 0 to 10. Then calculate an overall_score for each solution based on the criteria weights.
 
 ---
 
 ## Instructions:
-- Penalize hallucinations heavily.
-- Prefer solutions with examples or code if relevant.
-- If both solutions are weak, still choose the better one but explain flaws.
-- Give a score between 0 and 10 for each solution.
-- Be strict and unbiased.
-- Do NOT give the same score unless both are truly equal.
-- Prefer depth, correctness, and practical usability over verbosity.
+1. Score BOTH solutions on ALL criteria.
+
+2. Calculate overall_score using:
+   - overall_score = (correctness * 0.4) + (completeness * 0.2) + (clarity * 0.15) + (efficiency * 0.15) + (robustness * 0.1)
+
+3. Select the winner based on the higher overall_score.
+
+4. If scores are equal:
+- Choose based on clarity + completeness
+- Provide tie_break_reason
+
+5. Provide confidence score:
+- 0 → unsure
+- 1 → very confident
+- Base it on difference in scores + quality gap
+
+6. Penalize hallucinations heavily.
+7. Be strict and unbiased.
 
 ---
 
 ## Output Rules (STRICT):
 Return ONLY valid JSON.
 
-"recommended_response" MUST be exactly one of:
-- "Model 1 Response"
-- "Model 2 Response"
-
-Do NOT output anything else.
-Do NOT rephrase.
-Do NOT include explanations in this field.
+- winner MUST be:
+  "Model 1 Response" OR "Model 2 Response":
 
 ---
 
-## Decision Rule:
-- If solution_1_score > solution_2_score → "Model 1 Response"
-- If solution_2_score > solution_1_score → "Model 2 Response"
-- If equal → choose the better one based on clarity & completeness
-
 ## Output Format (STRICT JSON ONLY):
 {
-  "solution_1_score": number,
-  "solution_2_score": number,
+  "solution_1": {
+    "correctness": number,
+    "completeness": number,
+    "clarity": number,
+    "efficiency": number,
+    "robustness": number,
+    "overall_score": number
+  },
+  "solution_2": {
+    "correctness": number,
+    "completeness": number,
+    "clarity": number,
+    "efficiency": number,
+    "robustness": number,
+    "overall_score": number
+  },
+  "winner": "Model 1 Response" | "Model 2 Response",
+  "confidence": number,
   "reasoning": "Detailed comparison explaining why scores were assigned",
-  "recommended_response": MUST be exactly one of:
-- "Model 1 Response"
-- "Model 2 Response"
-- "Model 1 or Model 2 Response"(If equal → choose the better one based on clarity & completeness)
+  "tie_break_reason": "If applicable, explain why the winner was chosen in case of a tie. If not applicable, it should show no tie"
 }
 `,
   })
@@ -125,19 +155,16 @@ Do NOT include explanations in this field.
     ],
   })
 
-  const {
-    solution_1_score,
-    solution_2_score,
-    reasoning,
-    recommended_response,
-  } = judgeResponse.structuredResponse
+  const result = judgeResponse.structuredResponse
 
   return {
     judge: {
-      solution_1_score,
-      solution_2_score,
-      reasoning,
-      recommendation: recommended_response,
+      solution_1: result.solution_1,
+      solution_2: result.solution_2,
+      winner: result.winner,
+      confidence: result.confidence,
+      reasoning: result.reasoning,
+      tie_break_reason: result.tie_break_reason || '',
     },
   }
 }
