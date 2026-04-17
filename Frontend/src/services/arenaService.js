@@ -19,12 +19,16 @@ export async function sendPrompt(prompt) {
     body: JSON.stringify({ problem: prompt }),
   })
 
+  console.log(`Response : ${response}`)
+
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}))
     throw new Error(errorData.message || `Server error: ${response.status}`)
   }
 
   const data = await response.json()
+
+  console.log(`Data : $${data}`)
 
   if (!data.success) {
     throw new Error(data.message || 'Battle failed. Please try again.')

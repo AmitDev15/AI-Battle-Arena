@@ -27,7 +27,7 @@ export default function Header({ onClear, hasMessages }) {
           </svg>
         </div>
         <div>
-          <h1 className='legacy-title'>AI Battle Arena</h1>
+          <h1 className='legacy-title'>CompareX</h1>
           <p className='legacy-subtitle'>Two models. One judge. Zero mercy.</p>
         </div>
       </div>
