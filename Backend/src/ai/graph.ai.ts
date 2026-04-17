@@ -115,7 +115,7 @@ Each criterion should be scored on a scale of 0 to 10. Then calculate an overall
 Return ONLY valid JSON.
 
 - winner MUST be:
-  "Model 1 Response" OR "Model 2 Response":
+  "Model 1 Response" OR "Model 2 Response"
 
 ---
 
@@ -140,7 +140,7 @@ Return ONLY valid JSON.
   "winner": "Model 1 Response" | "Model 2 Response",
   "confidence": number,
   "reasoning": "Detailed comparison explaining why scores were assigned",
-  "tie_break_reason": "If applicable, explain why the winner was chosen in case of a tie. If not applicable, it should show no tie"
+  "tie_break_reason": "If applicable, explain why the winner was chosen in case of a tie. Omit this field if there was no tie."
 }
 `,
   })
@@ -156,6 +156,10 @@ Return ONLY valid JSON.
   })
 
   const result = judgeResponse.structuredResponse
+
+  if (!result || !result.solution_1 || !result.solution_2) {
+    throw new Error('Judge failed to produce valid structured response')
+  }
 
   return {
     judge: {
